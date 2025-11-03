@@ -2,6 +2,7 @@
 
 #include <vector>
 #include "../Entity/entity.h"
+#include "../Player/player.h"
 
 class World {
     private:
@@ -51,6 +52,9 @@ class World {
     }
 
     void ProcessEntities(double dt) {
+        if (entitylist.empty())
+            return;
+
         for (auto *e : entitylist) {
             if (!e || e == nullptr)
                 continue;
@@ -59,16 +63,23 @@ class World {
         }
     }
 
-    void DrawEntities(SDL_Renderer *renderer) {
+    void DrawEntities() {
+        if (entitylist.empty())
+            return;
+
         for (auto *e : entitylist) {
             if (!e || e == nullptr)
                 continue;
 
-            e->Draw(renderer);
+            e->Draw();
         }
     }
 
     void SetMaxEntities(int max_entities) {
         this->max_entities = max_entities;
+    }
+
+    Entity* GetLocalPlayer() {
+        return entitylist.at(0);
     }
 };

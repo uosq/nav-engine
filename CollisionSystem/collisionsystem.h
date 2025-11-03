@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <algorithm>
 
-enum class CollisionSide {
+enum class CollisionSide_t {
     None,
     Top,
     Bottom,
@@ -20,8 +20,8 @@ struct CollisionInfo_t {
     bool staticA;
     bool staticB;
     Vector2 penetration;
-    CollisionSide sideA;
-    CollisionSide sideB;
+    CollisionSide_t sideA;
+    CollisionSide_t sideB;
 };
 
 struct TraceResult_t {
@@ -30,11 +30,11 @@ struct TraceResult_t {
     Vector2 hitPoint;
     Vector2 hitNormal;
     float distance;
-    CollisionSide side;
+    CollisionSide_t side;
     
     TraceResult_t() : hit(false), hitEntity(nullptr), 
                     hitPoint({0,0}), hitNormal({0,0}), 
-                    distance(INFINITY), side(CollisionSide::None) {}
+                    distance(INFINITY), side(CollisionSide_t::None) {}
 };
 
 class CollisionSystem {
@@ -71,13 +71,13 @@ class CollisionSystem {
         return keys;
     }
 
-    CollisionSide Opposite(CollisionSide side) {
+    CollisionSide_t Opposite(CollisionSide_t side) {
         switch (side) {
-            case CollisionSide::Top: return CollisionSide::Bottom;
-            case CollisionSide::Bottom: return CollisionSide::Top;
-            case CollisionSide::Left: return CollisionSide::Right;
-            case CollisionSide::Right: return CollisionSide::Left;
-            default: return CollisionSide::None;
+            case CollisionSide_t::Top: return CollisionSide_t::Bottom;
+            case CollisionSide_t::Bottom: return CollisionSide_t::Top;
+            case CollisionSide_t::Left: return CollisionSide_t::Right;
+            case CollisionSide_t::Right: return CollisionSide_t::Left;
+            default: return CollisionSide_t::None;
         }
     }
 
@@ -123,14 +123,14 @@ public:
         return { overlapX, overlapY };
     }
 
-    CollisionSide DetermineCollisionSide(Entity* a, Entity* b, const Vector2& penetration) {
+    CollisionSide_t DetermineCollisionSide(Entity* a, Entity* b, const Vector2& penetration) {
         Vector2 posA = a->GetPosition();
         Vector2 posB = b->GetPosition();
 
         if (penetration.x < penetration.y) {
-            return (posA.x < posB.x) ? CollisionSide::Right : CollisionSide::Left;
+            return (posA.x < posB.x) ? CollisionSide_t::Right : CollisionSide_t::Left;
         } else {
-            return (posA.y < posB.y) ? CollisionSide::Bottom : CollisionSide::Top;
+            return (posA.y < posB.y) ? CollisionSide_t::Bottom : CollisionSide_t::Top;
         }
     }
 
@@ -168,8 +168,8 @@ public:
 
                     if (Intersect(A, B)) {
                         Vector2 pen = GetPenetrationDepth(A, B);
-                        CollisionSide sideA = DetermineCollisionSide(A, B, pen);
-                        CollisionSide sideB = Opposite(sideA);
+                        CollisionSide_t sideA = DetermineCollisionSide(A, B, pen);
+                        CollisionSide_t sideB = Opposite(sideA);
 
                         out.push_back({
                             A, B,
@@ -178,30 +178,6 @@ public:
                             sideA, sideB
                         });
                     }
-                }
-            }
-        }
-        return out;
-    }
-
-    // Legacy brute-force method (keep for comparison or small entity counts)
-    std::vector<CollisionInfo_t> DetectCollisionsBruteForce(const std::vector<Entity*>& entities) {
-        std::vector<CollisionInfo_t> out;
-        for (size_t i = 0; i < entities.size(); ++i) {
-            for (size_t j = i + 1; j < entities.size(); ++j) {
-                Entity* A = entities[i];
-                Entity* B = entities[j];
-                if (Intersect(A, B)) {
-                    Vector2 pen = GetPenetrationDepth(A, B);
-                    CollisionSide sideA = DetermineCollisionSide(A, B, pen);
-                    CollisionSide sideB = Opposite(sideA);
-
-                    out.push_back({
-                        A, B,
-                        A->IsStatic(), B->IsStatic(),
-                        pen,
-                        sideA, sideB
-                    });
                 }
             }
         }
@@ -217,18 +193,18 @@ public:
             Vector2 moveB = { 0.0f, 0.0f };
 
             if (c.penetration.x < c.penetration.y) {
-                if (c.sideA == CollisionSide::Right) {
+                if (c.sideA == CollisionSide_t::Right) {
                     moveA.x = -c.penetration.x;
                     moveB.x =  c.penetration.x;
-                } else if (c.sideA == CollisionSide::Left) {
+                } else if (c.sideA == CollisionSide_t::Left) {
                     moveA.x =  c.penetration.x;
                     moveB.x = -c.penetration.x;
                 }
             } else {
-                if (c.sideA == CollisionSide::Bottom) {
+                if (c.sideA == CollisionSide_t::Bottom) {
                     moveA.y = -c.penetration.y;
                     moveB.y =  c.penetration.y;
-                } else if (c.sideA == CollisionSide::Top) {
+                } else if (c.sideA == CollisionSide_t::Top) {
                     moveA.y =  c.penetration.y;
                     moveB.y = -c.penetration.y;
                 }
@@ -381,16 +357,16 @@ public:
                     float minEdgeDist = std::min({distToTop, distToBottom, distToLeft, distToRight});
                     
                     if (minEdgeDist == distToTop) {
-                        result.side = CollisionSide::Top;
+                        result.side = CollisionSide_t::Top;
                         result.hitNormal = {0.0f, 1.0f};
                     } else if (minEdgeDist == distToBottom) {
-                        result.side = CollisionSide::Bottom;
+                        result.side = CollisionSide_t::Bottom;
                         result.hitNormal = {0.0f, -1.0f};
                     } else if (minEdgeDist == distToLeft) {
-                        result.side = CollisionSide::Left;
+                        result.side = CollisionSide_t::Left;
                         result.hitNormal = {-1.0f, 0.0f};
                     } else {
-                        result.side = CollisionSide::Right;
+                        result.side = CollisionSide_t::Right;
                         result.hitNormal = {1.0f, 0.0f};
                     }
                 }
@@ -533,19 +509,19 @@ public:
                     if (tMinX > tMinY) {
                         // Hit on X axis
                         if (dir.x > 0) {
-                            result.side = CollisionSide::Left;
+                            result.side = CollisionSide_t::Left;
                             result.hitNormal = {-1.0f, 0.0f};
                         } else {
-                            result.side = CollisionSide::Right;
+                            result.side = CollisionSide_t::Right;
                             result.hitNormal = {1.0f, 0.0f};
                         }
                     } else {
                         // Hit on Y axis
                         if (dir.y > 0) {
-                            result.side = CollisionSide::Bottom;
+                            result.side = CollisionSide_t::Bottom;
                             result.hitNormal = {0.0f, -1.0f};
                         } else {
-                            result.side = CollisionSide::Top;
+                            result.side = CollisionSide_t::Top;
                             result.hitNormal = {0.0f, 1.0f};
                         }
                     }

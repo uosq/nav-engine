@@ -2,6 +2,8 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <SDL3/SDL_render.h>
+#include <SDL3/SDL_video.h>
 
 #include "../Vector2/vector2.h"
 
@@ -13,8 +15,8 @@ class Screen {
     Screen(const Screen&) = delete;
     Screen& operator=(const Screen&) = delete;
 
-    static constexpr int WINDOW_WIDTH = 800;
-    static constexpr int WINDOW_HEIGHT = 800;
+    static constexpr int WINDOW_WIDTH = 768;
+    static constexpr int WINDOW_HEIGHT = 768;
 
     Screen() {
         SDL_SetAppMetadata("Game", "1.0", "com.navet.game");
@@ -26,12 +28,12 @@ class Screen {
 
         float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
 
-        if (!SDL_CreateWindowAndRenderer("Game", (int)(WINDOW_WIDTH * main_scale), (int)(WINDOW_HEIGHT * main_scale), SDL_WINDOW_RESIZABLE, &window, &renderer)) {
+        if (!SDL_CreateWindowAndRenderer("Game", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
             SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
             return;
         }
 
-        SDL_SetRenderLogicalPresentation(renderer, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_LOGICAL_PRESENTATION_LETTERBOX);
+        SDL_SetRenderLogicalPresentation(renderer, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
     };
 
     public:

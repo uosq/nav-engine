@@ -8,10 +8,13 @@
 #include "Camera/camera.h"
 #include "World/world.h"
 #include "Screen/screen.h"
-#include "Player/player.h"
 #include "CollisionSystem/collisionsystem.h"
+#include "Material/material.h"
+//#include "SpriteEntity/spriteentity.h"
+#include "TiledSpriteEntity/tiledspriteentity.h"
 
 #ifdef ENABLEIMGUI
+#include "Player/player.h"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlrenderer3.h"
@@ -22,6 +25,9 @@ double oldNow = 0.0;
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 #endif
 
+Material* tileset = nullptr;
+Material* playerMat = nullptr;
+
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
@@ -29,7 +35,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     Screen &screen = Screen::GetInstance();
     World &world = World::GetInstance();
     Camera::GetInstance();
-    
+
     #ifdef ENABLEIMGUI
     float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     IMGUI_CHECKVERSION();
@@ -49,41 +55,44 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     ImGui_ImplSDLRenderer3_Init(screen.GetRenderer());
     #endif
 
+    SDL_Log("%s", SDL_GetBasePath());
+
+    // Create and load the tileset texture
+    tileset = new Material("Assets/sprites/world_tileset.png");
+    if (!tileset->Load()) {
+        SDL_Log("Failed to load tileset texture!");
+        return SDL_APP_FAILURE;
+    }
+
+    playerMat = new Material("Assets/sprites/knight.png");
+    if (!playerMat->Load()) {
+        SDL_Log("Failed to load player texture!");
+        return SDL_APP_FAILURE;
+    }
+
+    Camera::GetInstance().SetZoom(2.0f);
+
     Player *player = new Player();
     player->SetScale(1.0f);
     player->SetPosition({0.0, 0.0});
-    player->SetSize({10.0, 10.0});
     player->SetColor({255, 0, 0, 255});
     player->SetStatic(false);
+    player->SetMaterial(playerMat);
+    player->InitializeAnimations();
+    player->SetSize({14.0f, 17.0});
 
     world.AddEntity(player);
 
-    Entity *wall = new Entity();
+    TiledSpriteEntity *wall = new TiledSpriteEntity();
     wall->SetScale(1.0f);
-    wall->SetSize({100.0, 10.0});
+    wall->SetSize({1024.0, 16.0});
     wall->SetPosition({0.0, 20.0});
     wall->SetColor({255, 255, 255, 255});
     wall->SetStatic(true);
+    wall->SetMaterial(tileset);
+    wall->SetRegion(0.0, 0.0, 16.0, 16.0);
 
     world.AddEntity(wall);
-
-    Entity *wall2 = new Entity();
-    wall2->SetScale(1.0f);
-    wall2->SetSize({100.0, 10.0});
-    wall2->SetPosition({0.0, 40.0});
-    wall2->SetColor({255, 0, 255, 255});
-    wall2->SetStatic(false);
-
-    world.AddEntity(wall2);
-
-    Entity *wall3 = new Entity();
-    wall3->SetScale(1.0f);
-    wall3->SetSize({10.0, 100.0});
-    wall3->SetPosition({40.0, 40.0});
-    wall3->SetColor({0, 255, 255, 255});
-    wall3->SetStatic(true);
-
-    world.AddEntity(wall3);
 
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
@@ -115,13 +124,10 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     double deltaTime = now - oldNow; // time since last frame
     oldNow = now; // update for next iteration
 
-    auto &screen = Screen::GetInstance();
-    auto &world = World::GetInstance();
+    Screen &screen = Screen::GetInstance();
+    World &world = World::GetInstance();
     auto &collisionSystem = CollisionSystem::GetInstance();
-    auto *renderer = screen.GetRenderer();
-
-    // Jank at its finest lolo
-    Player *player = (Player*)world.GetEntities().at(0);
+    SDL_Renderer *renderer = screen.GetRenderer();
 
     world.ProcessEntities(deltaTime);
 
@@ -138,6 +144,9 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     SDL_RenderClear(renderer);
 
     #ifdef ENABLEIMGUI
+    /* Fucking cast */
+    Player *player = reinterpret_cast<Player*>(world.GetLocalPlayer());
+
     ImGui::Begin("Hello", NULL, ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::Text("Very useful text");
         float scale = player->GetScale();
@@ -161,7 +170,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
         if (ImGui::SliderFloat("Camera Zoom", &cameraScale, 0.0f, 10.0f, "%.3f"))
             camera.SetZoom(cameraScale);
 
-        ImGui::LabelText("Ground", "Grounded: %i", player->IsGrounded());
+        ImGui::LabelText("", "Grounded: %i", player->IsGrounded());
 
         CollisionSystem::Stats stats = collisionSystem.GetGridStats();
         ImGui::BeginGroup();
@@ -177,7 +186,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     ImGui::End();
     #endif
 
-    world.DrawEntities(renderer);
+    world.DrawEntities();
 
     #ifdef ENABLEIMGUI
     ImGui::Render();
@@ -199,6 +208,12 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
     #endif
+
+    tileset->Unload();
+    delete tileset;
+
+    playerMat->Unload();
+    delete playerMat;
 
     for (auto &e : World::GetInstance().GetEntities()) {
         if (e == nullptr)

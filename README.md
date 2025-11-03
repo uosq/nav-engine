@@ -1,5 +1,9 @@
 # My Game Engine
 
+## Credits
+
+Sprites: https://brackeysgames.itch.io/brackeys-platformer-bundle
+
 ## How to build
 
 Dependencies:

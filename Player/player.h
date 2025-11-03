@@ -2,130 +2,185 @@
 
 #include "../World/world.h"
 #include "../CollisionSystem/collisionsystem.h"
-#include "../Entity/entity.h"
+#include "../AnimatedEntity/animatedentity.h"
 #include "../Camera/camera.h"
 #include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_scancode.h>
 
 #define GRAVITY 980.0f
 
-class Player: public Entity {
+enum class PlayerAnimationState_t {
+    IDLE = 0,
+    RUN,
+};
+
+class Player : public AnimatedEntity {
 private:
     float speed = 200.0f;
     bool isOnGround = false;
-    float verticalVelocity = 0.0f;
-    const float groundCheckDistance = 1.5f; // Small distance to check below player
+    const float groundCheckDistance = 2.0f;
+    PlayerAnimationState_t animState;
 
 public:
     bool IsOnGround() {
         return isOnGround;
     }
 
+    void InitializeAnimations() override {
+        animations["idle"] = {
+            {
+                {9,10,13,18},
+                {41,10,13,18},
+                {73,10,13,18},
+                {105,10,13,18},
+            },
+            0.1f
+        };
+
+        animations["walk"] = {
+            {
+                {8,75,13,17},
+                {41,75,13,17},
+                {73,75,13,16},
+                /*{105,75,13,17},
+                {136,75,13,17},
+                {169,75,13,17},
+                {201,75,13,16},
+                {233,75,13,17},
+                {8,106,13,18},
+                {41,106,13,18},
+                {73,106,13,17},
+                {105,106,13,18},
+                {136,106,13,18},
+                {169,106,13,18},
+                {201,106,13,17},
+                {233,106,13,18},*/
+            },
+            0.1f
+        };
+    }
+
     void Process(double dt) override {
-        const bool *keys = SDL_GetKeyboardState(nullptr);
+        if (fabs(velocity.x) < 0.5f) {
+            animState = PlayerAnimationState_t::IDLE;
+        } else {
+            animState = PlayerAnimationState_t::RUN;
+        }
+
+        UpdateAnimation(dt, animState == PlayerAnimationState_t::IDLE ? "idle" : "walk");
+
+        const bool* keys = SDL_GetKeyboardState(nullptr);
         Vector2 moveDir = {0.0f, 0.0f};
-        
-        // Get input
-        if (keys[SDL_SCANCODE_A])
+
+        // Input
+        if (keys[SDL_SCANCODE_A]) {
+            flipX = true;
             moveDir.x -= 1.0f;
-        if (keys[SDL_SCANCODE_D])
+        }
+        if (keys[SDL_SCANCODE_D]) {
+            flipX = false;
             moveDir.x += 1.0f;
-        
+        }
+
         moveDir.Normalize();
 
         // Apply gravity
-        if (!isOnGround) {
-            verticalVelocity += GRAVITY * dt;
-        } else {
-            verticalVelocity = 0.0f;
-        }
+        if (!isOnGround)
+            velocity.y += GRAVITY * (float)dt;
+        else if (velocity.y > 0.0f)
+            velocity.y = 0.0f;
 
         // Jump
         if (keys[SDL_SCANCODE_W] && isOnGround) {
-            verticalVelocity = -400.0f; // Negative = upward
+            velocity.y = -400.0f; // upward impulse
             isOnGround = false;
         }
 
-        // Calculate desired movement
-        Vector2 horizontalMove = {moveDir.x * speed * (float)dt, 0.0f};
-        Vector2 verticalMove = {0.0f, verticalVelocity * (float)dt};
+        // Horizontal control
+        const float acceleration = 2000.0f; // how fast to reach max speed
+        const float damping = 6.0f;         // how quickly to slow when no input
+        const float maxSpeed = speed;
 
-        if (horizontalMove.x != 0.0f || horizontalMove.y != 0.0f) {
-            Vector2 startPos = position;
-            Vector2 endPos = {position.x + horizontalMove.x, position.y + horizontalMove.y};
-            
-            TraceResult_t hTrace = CollisionSystem::GetInstance().TraceHull(
-                startPos, endPos, size, this
-            );
+        if (moveDir.x != 0.0f) {
+            // Accelerate toward desired direction
+            velocity.x += moveDir.x * acceleration * (float)dt;
 
-            if (hTrace.hit) {
-                // Move to the point just before collision
-                // Use the hit distance to determine how far we can move
-                float safeFraction = std::max(0.0f, hTrace.distance / 
-                    std::sqrt(horizontalMove.x * horizontalMove.x + horizontalMove.y * horizontalMove.y) - 0.01f);
-                position.x += horizontalMove.x * safeFraction;
-            } else {
-                // No collision, move freely
-                position.x += horizontalMove.x;
-            }
+            // Clamp to max speed
+            if (velocity.x >  maxSpeed) velocity.x =  maxSpeed;
+            if (velocity.x < -maxSpeed) velocity.x = -maxSpeed;
+        } else {
+            // No input → apply damping (friction)
+            velocity.x -= velocity.x * damping * (float)dt;
         }
 
-        {
+        // Predict displacement for this frame
+        Vector2 move = velocity * (float)dt;
+
+        // Horizontal movement
+        if (move.x != 0.0f) {
             Vector2 startPos = position;
-            Vector2 endPos = {position.x, position.y + verticalMove.y};
-            
-            TraceResult_t trace = CollisionSystem::GetInstance().TraceHull(
-                startPos, endPos, size, this
-            );
+            Vector2 endPos = {position.x + move.x, position.y};
+
+            TraceResult_t trace = CollisionSystem::GetInstance().TraceHull(startPos, endPos, size, this);
 
             if (trace.hit) {
-                // Hit something
-                if (trace.side == CollisionSide::Bottom || trace.side == CollisionSide::Top) {
-                    // Vertical collision
-                    float safeFraction = std::max(0.0f, trace.distance / std::abs(verticalMove.y) - 0.01f);
-                    position.y += verticalMove.y * safeFraction;
-                    
-                    if (verticalVelocity > 0.0f) {
-                        // Hit ground (moving down)
-                        isOnGround = true;
-                        verticalVelocity = 0.0f;
-                    } else {
-                        // Hit ceiling (moving up)
-                        verticalVelocity = 0.0f;
-                    }
-                } else {
-                    // Side collision during vertical movement (shouldn't happen much)
-                    position.y += verticalMove.y;
-                }
+                float safeMove = std::max(0.0f, trace.distance - 0.01f);
+                position.x += (move.x > 0.0f ? 1.0f : -1.0f) * safeMove;
+                velocity.x = 0.0f; // stop horizontal motion when hitting wall
             } else {
-                // No collision, move freely
-                position.y += verticalMove.y;
-                isOnGround = false;  // In air if no collision below
+                position.x += move.x;
             }
         }
 
+        // Vertical movement
+        if (move.y != 0.0f) {
+            Vector2 startPos = position;
+            Vector2 endPos = {position.x, position.y + move.y};
+
+            TraceResult_t trace = CollisionSystem::GetInstance().TraceHull(startPos, endPos, size, this);
+
+            if (trace.hit) {
+                float safeMove = std::max(0.0f, trace.distance - 0.01f);
+                position.y += (move.y > 0.0f ? 1.0f : -1.0f) * safeMove;
+
+                // Stop vertical velocity depending on direction
+                if (move.y > 0.0f) {
+                    // Landed on ground
+                    isOnGround = true;
+                    velocity.y = 0.0f;
+                } else {
+                    // Hit ceiling
+                    velocity.y = 0.0f;
+                }
+            } else {
+                position.y += move.y;
+                isOnGround = false;
+            }
+        }
+
+        // Ground check
         {
             Vector2 feetPos = position;
             Vector2 checkEnd = {position.x, position.y + groundCheckDistance};
-            
+
             TraceResult_t groundTrace = CollisionSystem::GetInstance().TraceHull(
                 feetPos, checkEnd, size, this
             );
 
             if (groundTrace.hit && groundTrace.distance <= groundCheckDistance) {
                 isOnGround = true;
-                // Snap to ground if very close
-                if (groundTrace.distance < 1.0f && verticalVelocity >= 0.0f) {
+                if (groundTrace.distance < 1.0f && velocity.y >= 0.0f) {
                     position.y = groundTrace.hitPoint.y - (size.y * 0.5f);
-                    verticalVelocity = 0.0f;
+                    velocity.y = 0.0f;
                 }
-            } else if (verticalVelocity >= 0.0f) {
-                // Only set grounded to false if we're moving down or stationary
-                // This prevents losing ground state when moving up
+            } else if (velocity.y >= 0.0f) {
                 isOnGround = false;
             }
         }
 
         // Follow camera
-        Camera::GetInstance().SetPosition(position);
+        Vector2 oldPos = Camera::GetInstance().GetPosition();
+        oldPos.Lerp(position, 25.0f * dt);
+        Camera::GetInstance().SetPosition(oldPos);
     }
 };

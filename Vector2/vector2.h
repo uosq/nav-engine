@@ -1,90 +1,89 @@
 #pragma once
 
-#include <math.h>
+#include <cmath>
 
 class Vector2 {
-    public:
+public:
+    float x = 0.0f;
+    float y = 0.0f;
+
+    Vector2() = default;
+    Vector2(float x, float y) : x(x), y(y) {}
     ~Vector2() = default;
-    float x = 0.0f, y = 0.0f;
-
-    Vector2() {
-        this->x = 0.0f;
-        this->y = 0.0f;
-    }
-
-    Vector2(float x, float y) {
-        this->x = x;
-        this->y = y;
-    }
 
     void Normalize() {
-        float length = std::sqrtf(this->x * this->x + this->y * this->y);
-        if (length <= 0.0001f) /* Too small :( */
+        float length = Length();
+        if (length <= 0.0001f)
             return;
-
-        this->x /= length;
-        this->y /= length;
+        x /= length;
+        y /= length;
     }
 
-    float Length() {
-        return std::sqrtf(this->x * this->x + this->y * this->y);
-    }
-    
-    float Dot(Vector2 vec) {
-        return (x * vec.x + y * vec.y);
+    float Length() const {
+        return std::sqrtf(x * x + y * y);
     }
 
-    /* Gets the angle between 2 vectors |
-    source.Angle(to); */
-    float Angle(Vector2 to){
+    float Dot(const Vector2& vec) const {
+        return x * vec.x + y * vec.y;
+    }
+
+    float Angle(const Vector2& to) const {
         return std::acos(Dot(to) / (Length() * to.Length()));
     }
 
-    Vector2& operator + (Vector2 vec) {
-        this->x += vec.x;
-        this->y += vec.y;
-        return *this;
-    };
+    void Lerp(const Vector2& to, float time) {
+        x = x + (to.x - x) * time;
+        y = y + (to.y - y) * time;
+    }
 
-    Vector2& operator - (Vector2 vec) {
-        this->x -= vec.x;
-        this->y -= vec.y;
-        return *this;
-    };
+    // Non-mutating arithmetic
+    Vector2 operator+(const Vector2& vec) const {
+        return Vector2(x + vec.x, y + vec.y);
+    }
 
-    Vector2& operator * (float scalar) {
-        this->x *= scalar;
-        this->y *= scalar;
-        return *this;
-    };
+    Vector2 operator-(const Vector2& vec) const {
+        return Vector2(x - vec.x, y - vec.y);
+    }
 
-    Vector2& operator += (Vector2 vec) {
-        this->x += vec.x;
-        this->y += vec.y;
-        return *this;
-    };
+    Vector2 operator*(float scalar) const {
+        return Vector2(x * scalar, y * scalar);
+    }
 
-    Vector2& operator -= (Vector2 vec) {
-        this->x -= vec.x;
-        this->y -= vec.y;
-        return *this;
-    };
+    Vector2 operator/(float scalar) const {
+        return Vector2(x / scalar, y / scalar);
+    }
 
-    Vector2& operator *= (float scalar) {
-        this->x *= scalar;
-        this->y *= scalar;
+    // Compound assignment (mutating)
+    Vector2& operator+=(const Vector2& vec) {
+        x += vec.x;
+        y += vec.y;
         return *this;
     }
 
-    Vector2& operator / (float scalar) {
-        this->x /= scalar;
-        this->y /= scalar;
+    Vector2& operator-=(const Vector2& vec) {
+        x -= vec.x;
+        y -= vec.y;
         return *this;
-    };
+    }
 
-    Vector2& operator /= (float scalar) {
-        this->x /= scalar;
-        this->y /= scalar;
+    Vector2& operator*=(float scalar) {
+        x *= scalar;
+        y *= scalar;
         return *this;
-    };
+    }
+
+    Vector2& operator/=(float scalar) {
+        x /= scalar;
+        y /= scalar;
+        return *this;
+    }
+
+    bool operator==(const Vector2& v) const {
+        return x == v.x && y == v.y;
+    }
+
+    bool operator!=(const Vector2& v) const {
+        return !(*this == v);
+    }
+
 };
