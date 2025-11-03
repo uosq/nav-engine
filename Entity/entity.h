@@ -10,43 +10,30 @@
 class Entity {
     protected:
     Vector2 position = {0.0, 0.0};
+    Vector2 velocity = {0.0, 0.0};
     Vector2 size = {0.0, 0.0};
     float scale = 1.0f;
     Color color = {0, 0, 0, 255};
     bool isStatic = false;
 
     public:
-    Vector2 GetPosition() {
-        return this->position;
-    }
 
-    void SetPosition(Vector2 position) {
-        this->position = position;
-    };
+    Vector2 GetPosition() { return this->position; }
+    void SetPosition(Vector2 position) { this->position = position; };
+    
+    Vector2 GetSize() { return this->size; }
+    void SetSize(Vector2 size) { this->size = size; }
+    
+    float GetScale() { return this->scale; }
+    void SetScale(float scale) { this->scale = scale; }
+    
+    bool IsStatic() { return this->isStatic; }
+    void SetStatic(bool isStatic) { this->isStatic = isStatic; }
 
-    Vector2 GetSize() {
-        return this->size;
-    }
+    void SetColor(Color color) { this->color = color; }
+    Color GetColor() { return this->color; }
 
-    void SetSize(Vector2 size) {
-        this->size = size;
-    }
-
-    float GetScale() {
-        return this->scale;
-    }
-
-    void SetScale(float scale) {
-        this->scale = scale;
-    }
-
-    bool IsStatic() {
-        return this->isStatic;
-    }
-
-    void SetStatic(bool isStatic) {
-        this->isStatic = isStatic;
-    }
+    virtual void Process(double dt) { }
 
     virtual void Draw(SDL_Renderer *renderer) {
         SDL_FRect rect = {};
@@ -59,17 +46,6 @@ class Entity {
 
         SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
         SDL_RenderFillRect(renderer, &rect);
-    }
-
-    virtual void Process(double dt) { }
-    virtual void OnCollision(Entity *collided) {}
-
-    void SetColor(Color color) {
-        this->color = color;
-    }
-
-    Color GetColor() {
-        return this->color;
     }
 
     Entity() {

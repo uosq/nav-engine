@@ -403,10 +403,165 @@ public:
     // TraceLine with explicit entity list (useful if grid isn't built yet)
     TraceResult_t TraceLine(Vector2 start, Vector2 end, 
                          const std::vector<Entity*>& entities, 
-                         Entity* ignore = nullptr) 
-    {
+                         Entity* ignore = nullptr) {
         // Build grid for this query if using explicit entity list
         BuildSpatialGrid(entities);
         return TraceLine(start, end, ignore);
+    }
+
+    TraceResult_t TraceHull(Vector2 start, Vector2 end, Vector2 hullSize, Entity* ignore = nullptr) {
+        TraceResult_t result;
+        
+        // Collect candidate entities along the swept path
+        std::unordered_set<Entity*> candidates;
+        
+        Vector2 dir = { end.x - start.x, end.y - start.y };
+        float sweepLength = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+        
+        if (sweepLength < 0.001f) return result; // Zero-length sweep
+        
+        // Normalize direction
+        Vector2 normDir = { dir.x / sweepLength, dir.y / sweepLength };
+        
+        // Calculate the bounds of the entire swept area
+        Vector2 halfSize = { hullSize.x * 0.5f, hullSize.y * 0.5f };
+        Vector2 sweepMin = {
+            std::min(start.x, end.x) - halfSize.x,
+            std::min(start.y, end.y) - halfSize.y
+        };
+        Vector2 sweepMax = {
+            std::max(start.x, end.x) + halfSize.x,
+            std::max(start.y, end.y) + halfSize.y
+        };
+        
+        // Get all cells the swept area touches
+        int minCellX = (int)std::floor(sweepMin.x / cellSize);
+        int maxCellX = (int)std::floor(sweepMax.x / cellSize);
+        int minCellY = (int)std::floor(sweepMin.y / cellSize);
+        int maxCellY = (int)std::floor(sweepMax.y / cellSize);
+        
+        for (int x = minCellX; x <= maxCellX; ++x) {
+            for (int y = minCellY; y <= maxCellY; ++y) {
+                int key = HashCell(x, y);
+                if (spatialGrid.count(key)) {
+                    for (Entity* e : spatialGrid[key]) {
+                        if (e != ignore) {
+                            candidates.insert(e);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Test swept AABB against each candidate
+        for (Entity* e : candidates) {
+            Vector2 targetMin, targetMax;
+            GetWorldAABB(e, targetMin, targetMax);
+            
+            // Expand target AABB by hull half-extents (Minkowski sum)
+            targetMin.x -= halfSize.x;
+            targetMin.y -= halfSize.y;
+            targetMax.x += halfSize.x;
+            targetMax.y += halfSize.y;
+            
+            // Now do ray vs expanded AABB test
+            float tMin = 0.0f;
+            float tMax = 1.0f;
+            
+            // Slab test for X axis
+            if (std::abs(dir.x) > 0.0001f) {
+                float t1 = (targetMin.x - start.x) / dir.x;
+                float t2 = (targetMax.x - start.x) / dir.x;
+                tMin = std::max(tMin, std::min(t1, t2));
+                tMax = std::min(tMax, std::max(t1, t2));
+            } else {
+                // Sweep parallel to X axis
+                if (start.x < targetMin.x || start.x > targetMax.x) {
+                    continue; // No intersection
+                }
+            }
+            
+            // Slab test for Y axis
+            if (std::abs(dir.y) > 0.0001f) {
+                float t1 = (targetMin.y - start.y) / dir.y;
+                float t2 = (targetMax.y - start.y) / dir.y;
+                tMin = std::max(tMin, std::min(t1, t2));
+                tMax = std::min(tMax, std::max(t1, t2));
+            } else {
+                // Sweep parallel to Y axis
+                if (start.y < targetMin.y || start.y > targetMax.y) {
+                    continue; // No intersection
+                }
+            }
+            
+            // Check if intersection exists and is within sweep
+            if (tMin <= tMax && tMin >= 0.0f && tMin <= 1.0f) {
+                float dist = tMin * sweepLength;
+                
+                // Keep closest hit
+                if (dist < result.distance) {
+                    result.hit = true;
+                    result.hitEntity = e;
+                    result.distance = dist;
+                    result.hitPoint = { 
+                        start.x + dir.x * tMin, 
+                        start.y + dir.y * tMin 
+                    };
+                    
+                    // Determine collision side based on which face was hit first
+                    // We need to check which slab (X or Y) gave us tMin
+                    float tMinX = 0.0f;
+                    float tMaxX = 1.0f;
+                    float tMinY = 0.0f;
+                    float tMaxY = 1.0f;
+                    
+                    if (std::abs(dir.x) > 0.0001f) {
+                        float t1 = (targetMin.x - start.x) / dir.x;
+                        float t2 = (targetMax.x - start.x) / dir.x;
+                        tMinX = std::min(t1, t2);
+                        tMaxX = std::max(t1, t2);
+                    }
+                    
+                    if (std::abs(dir.y) > 0.0001f) {
+                        float t1 = (targetMin.y - start.y) / dir.y;
+                        float t2 = (targetMax.y - start.y) / dir.y;
+                        tMinY = std::min(t1, t2);
+                        tMaxY = std::max(t1, t2);
+                    }
+                    
+                    // The axis that has the larger tMin is the one we hit
+                    if (tMinX > tMinY) {
+                        // Hit on X axis
+                        if (dir.x > 0) {
+                            result.side = CollisionSide::Left;
+                            result.hitNormal = {-1.0f, 0.0f};
+                        } else {
+                            result.side = CollisionSide::Right;
+                            result.hitNormal = {1.0f, 0.0f};
+                        }
+                    } else {
+                        // Hit on Y axis
+                        if (dir.y > 0) {
+                            result.side = CollisionSide::Bottom;
+                            result.hitNormal = {0.0f, -1.0f};
+                        } else {
+                            result.side = CollisionSide::Top;
+                            result.hitNormal = {0.0f, 1.0f};
+                        }
+                    }
+                }
+            }
+        }
+        
+        return result;
+    }
+
+    // TraceHull with explicit entity list (useful if grid isn't built yet)
+    TraceResult_t TraceHull(Vector2 start, Vector2 end, Vector2 hullSize,
+                        const std::vector<Entity*>& entities, 
+                        Entity* ignore = nullptr)  {
+        // Build grid for this query if using explicit entity list
+        BuildSpatialGrid(entities);
+        return TraceHull(start, end, hullSize, ignore);
     }
 };

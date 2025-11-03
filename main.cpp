@@ -76,6 +76,15 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 
     world.AddEntity(wall2);
 
+    Entity *wall3 = new Entity();
+    wall3->SetScale(1.0f);
+    wall3->SetSize({10.0, 100.0});
+    wall3->SetPosition({40.0, 40.0});
+    wall3->SetColor({0, 255, 255, 255});
+    wall3->SetStatic(true);
+
+    world.AddEntity(wall3);
+
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
 
@@ -111,6 +120,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     auto &collisionSystem = CollisionSystem::GetInstance();
     auto *renderer = screen.GetRenderer();
 
+    // Jank at its finest lolo
     Player *player = (Player*)world.GetEntities().at(0);
 
     world.ProcessEntities(deltaTime);
@@ -143,13 +153,13 @@ SDL_AppResult SDL_AppIterate(void *appstate)
         Camera &camera = Camera::GetInstance();
         Vector2 cameraPosition = camera.GetPosition();
         float cameraPos[2] = {cameraPosition.x, cameraPosition.y};
-        float cameraScale = camera.GetScale();
+        float cameraScale = camera.GetZoom();
 
         if (ImGui::SliderFloat2("Camera Position", cameraPos, -1000.0f, 1000.0f, "%.3f"))
             camera.SetPosition((Vector2){cameraPos[0], cameraPos[1]});
 
-        if (ImGui::SliderFloat("Camera Scale", &cameraScale, 0.0f, 10.0f, "%.3f"))
-            camera.SetScale(cameraScale);
+        if (ImGui::SliderFloat("Camera Zoom", &cameraScale, 0.0f, 10.0f, "%.3f"))
+            camera.SetZoom(cameraScale);
 
         ImGui::LabelText("Ground", "Grounded: %i", player->IsGrounded());
 
