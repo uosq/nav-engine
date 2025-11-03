@@ -10,8 +10,8 @@ class Camera {
         return instance;
     };
 
-    void SetScale(float scale) {
-        this->scale = scale;
+    void SetZoom(float zoom) {
+        this->zoom = zoom;
     }
 
     Vector2 GetPosition() {
@@ -32,24 +32,24 @@ class Camera {
 
     Vector2 WorldToScreen(Vector2 worldPosition) {
         Vector2 screenCenter = Screen::GetInstance().GetSize() / 2.0;
-        return (worldPosition - position) * scale + screenCenter;
+        return (worldPosition - position) * zoom + screenCenter;
     }
 
     Vector2 ScreenToWorld(Vector2 screenPosition) {
         Vector2 screenCenter = Screen::GetInstance().GetSize() / 2.0;
-        return (screenPosition - screenCenter) / scale + position;
+        return (screenPosition - screenCenter) / zoom + position;
     }
 
-    float GetScaleOnScreen(float scaleThis) {
-        return scale * scaleThis;
+    float GetZoomOnScreen(float scale) {
+        return zoom * scale;
     }
 
-    float GetScale() {
-        return this->scale;
+    float GetZoom() {
+        return this->zoom;
     }
 
     protected:
-    float scale = 1;
+    float zoom = 1;
     Vector2 position;
 
 private:

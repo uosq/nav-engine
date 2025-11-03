@@ -52,8 +52,8 @@ class Entity {
         SDL_FRect rect = {};
         Camera &camera = Camera::GetInstance();
         Vector2 screenPos = camera.WorldToScreen(position);
-        rect.w = size.x * camera.GetScaleOnScreen(scale);
-        rect.h = size.y * camera.GetScaleOnScreen(scale);
+        rect.w = size.x * camera.GetZoomOnScreen(scale);
+        rect.h = size.y * camera.GetZoomOnScreen(scale);
         rect.x = screenPos.x - (rect.w * 0.5f);
         rect.y = screenPos.y - (rect.h * 0.5f);
 
