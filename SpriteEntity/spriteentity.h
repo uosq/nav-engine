@@ -40,8 +40,8 @@ class SpriteEntity: public Entity {
         rect.y = screenPos.y - (rect.h * 0.5f);
 
         /* debug */
-        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-        SDL_RenderFillRect(renderer, &rect);
+        //SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+        //SDL_RenderFillRect(renderer, &rect);
         /**/
 
         // Use srcRect only if useRegion is true, otherwise use entire texture

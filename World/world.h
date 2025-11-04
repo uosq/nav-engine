@@ -35,7 +35,7 @@ class World {
     }
 
     bool RemoveEntity(Entity *entity) {
-        if (entitylist.empty())
+        if (entitylist.size() == 0)
             return false;
 
         for (int i = 0; i < entitylist.size(); i++) {
@@ -52,7 +52,7 @@ class World {
     }
 
     void ProcessEntities(double dt) {
-        if (entitylist.empty())
+        if (entitylist.size() == 0)
             return;
 
         for (auto *e : entitylist) {
@@ -64,7 +64,7 @@ class World {
     }
 
     void DrawEntities() {
-        if (entitylist.empty())
+        if (entitylist.size() == 0)
             return;
 
         for (auto *e : entitylist) {

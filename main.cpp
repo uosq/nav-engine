@@ -1,7 +1,7 @@
+#define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_scancode.h>
-#define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
@@ -20,17 +20,48 @@
 #include "imgui_impl_sdlrenderer3.h"
 #endif
 
+#ifdef ENABLELUA
+extern "C" {
+#include <lua5.4/lauxlib.h>
+#include <lua5.4/lualib.h>
+}
+
+#include <lua5.4/lua.hpp>
+#include "Lua/Classes/vector2.h"
+#include "Lua/Libraries/camera.h"
+#endif
+
 double oldNow = 0.0;
 #ifdef ENABLEIMGUI
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+float entSize[2] = {0.0, 0.0};
+float entPos[2] = {0.0, 0.0};
+int entColor[4] = {0, 0, 0, 0};
+bool entStatic = false;
+float entScale = 1.0f;
 #endif
 
 Material* tileset = nullptr;
 Material* playerMat = nullptr;
 
+#ifdef ENABLELUA
+lua_State *L = nullptr;
+#endif
+
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
+    #ifdef ENABLELUA
+    L = luaL_newstate();
+    luaL_openlibs(L);
+
+    // Lua classes
+    Register_Vector2Class(L);
+
+    // Lua libraries
+    luaopen_camera(L);
+    #endif
+
     /* Initialize our world */
     Screen &screen = Screen::GetInstance();
     World &world = World::GetInstance();
@@ -76,7 +107,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     player->SetScale(1.0f);
     player->SetPosition({0.0, 0.0});
     player->SetColor({255, 0, 0, 255});
-    player->SetStatic(false);
+    player->SetStatic(true);
     player->SetMaterial(playerMat);
     player->InitializeAnimations();
     player->SetSize({14.0f, 17.0});
@@ -146,8 +177,12 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     #ifdef ENABLEIMGUI
     /* Fucking cast */
     Player *player = reinterpret_cast<Player*>(world.GetLocalPlayer());
+    Camera &camera = Camera::GetInstance();
+    Vector2 cameraPosition = camera.GetPosition();
+    float cameraPos[2] = {cameraPosition.x, cameraPosition.y};
+    float cameraScale = camera.GetZoom();
 
-    ImGui::Begin("Hello", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+    if(ImGui::Begin("Hello", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Very useful text");
         float scale = player->GetScale();
         if (ImGui::SliderFloat("Player Scale", &scale, 0.0, 10.0, "%.3f", 0))
@@ -159,18 +194,13 @@ SDL_AppResult SDL_AppIterate(void *appstate)
             player->SetColor((Color){(int)(col[0] * 255), (int)(col[1]*255), (int)(col[2]*255), (int)(col[3]*255)});
         }
 
-        Camera &camera = Camera::GetInstance();
-        Vector2 cameraPosition = camera.GetPosition();
-        float cameraPos[2] = {cameraPosition.x, cameraPosition.y};
-        float cameraScale = camera.GetZoom();
-
         if (ImGui::SliderFloat2("Camera Position", cameraPos, -1000.0f, 1000.0f, "%.3f"))
             camera.SetPosition((Vector2){cameraPos[0], cameraPos[1]});
 
         if (ImGui::SliderFloat("Camera Zoom", &cameraScale, 0.0f, 10.0f, "%.3f"))
             camera.SetZoom(cameraScale);
 
-        ImGui::LabelText("", "Grounded: %i", player->IsGrounded());
+        ImGui::LabelText("", "Grounded: %i", player->IsOnGround());
 
         CollisionSystem::Stats stats = collisionSystem.GetGridStats();
         ImGui::BeginGroup();
@@ -183,6 +213,42 @@ SDL_AppResult SDL_AppIterate(void *appstate)
         if (ImGui::Button("Quit"))
             return SDL_APP_SUCCESS;
 
+    }
+    ImGui::End();
+
+    if (ImGui::Begin("Editor", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::SliderFloat2("Position", entPos, -1000, 1000, "%.3f");
+            ImGui::SliderFloat2("Size", entSize, 1.0, 1000.0, "%.3f");
+            ImGui::SliderInt4("Color", entColor, 0, 255, "%d");
+            ImGui::SliderFloat("Scale", &entScale, 0, 10.0, "%.3f");
+            
+            if (ImGui::Button("Toggle Static")) {
+                /* vapo */
+                entStatic = entStatic ? false : true;
+            }
+            ImGui::LabelText("", "Static: %d", entStatic);
+
+            if (ImGui::Button("Add Entity")) {
+                    Entity *entity = new Entity();
+                    entity->SetScale(entScale);
+                    entity->SetSize({entSize[0], entSize[1]});
+                    entity->SetPosition({entPos[0], entPos[1]});
+                    entity->SetColor({entColor[0], entColor[1], entColor[2], entColor[3]});
+                    entity->SetStatic(entStatic);
+                    world.AddEntity(entity);
+            }
+
+            /* O retangulo do tamanho do trem */
+            SDL_FRect rect = {};
+            Vector2 pos = Camera::GetInstance().WorldToScreen({entPos[0], entPos[1]});
+            rect.w = entSize[0] * Camera::GetInstance().GetZoomOnScreen(entScale);
+            rect.h = entSize[1] * Camera::GetInstance().GetZoomOnScreen(entScale);
+            rect.x = pos.x - rect.w*0.5f;
+            rect.y = pos.y - rect.h*0.5f;
+
+            SDL_SetRenderDrawColor(renderer, entColor[0], entColor[1], entColor[2], entColor[3]);
+            SDL_RenderRect(renderer, &rect);
+        }
     ImGui::End();
     #endif
 
@@ -207,6 +273,10 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
     ImGui_ImplSDLRenderer3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
+    #endif
+
+    #ifdef ENABLELUA
+    lua_close(L);
     #endif
 
     tileset->Unload();

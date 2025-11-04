@@ -53,7 +53,6 @@ public:
         return Vector2(x / scalar, y / scalar);
     }
 
-    // Compound assignment (mutating)
     Vector2& operator+=(const Vector2& vec) {
         x += vec.x;
         y += vec.y;
