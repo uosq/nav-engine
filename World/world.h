@@ -8,6 +8,7 @@ class World {
     private:
     std::vector<Entity*> entitylist;
     int max_entities = 64;
+    Player *localPlayer;
 
     World(const World&) = delete;
     World& operator=(const World&) = delete;
@@ -79,7 +80,17 @@ class World {
         this->max_entities = max_entities;
     }
 
-    Entity* GetLocalPlayer() {
-        return entitylist.at(0);
+    Player* GetLocalPlayer() {
+        return localPlayer;
+    }
+
+    void SetLocalPlayer(Player *player) {
+        localPlayer = player;
+    }
+
+    void ClearEntities() {
+        for (Entity *e : entitylist)
+            delete e;
+        entitylist.clear();
     }
 };

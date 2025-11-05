@@ -13,7 +13,7 @@ public:
 
     void Normalize() {
         float length = Length();
-        if (length <= 0.0001f)
+        if (length <= 0.001f)
             return;
         x /= length;
         y /= length;

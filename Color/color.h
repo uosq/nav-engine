@@ -2,9 +2,9 @@
 
 class Color {
     public:
-    int r, g, b, a;
+    float r, g, b, a;
     Color();
-    Color(int r, int g, int b, int a);
+    Color(float r, float g, float b, float a);
 };
 
 inline Color::Color() {
@@ -14,7 +14,7 @@ inline Color::Color() {
     a = 255.0;
 };
 
-inline Color::Color(int r, int g, int b, int a) {
+inline Color::Color(float r, float g, float b, float a) {
     this->r = r;
     this->g = g;
     this->b = b;

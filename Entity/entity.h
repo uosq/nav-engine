@@ -14,8 +14,9 @@ protected:
     Vector2 velocity = {0.0, 0.0};
     Vector2 size = {0.0, 0.0};
     float scale = 1.0f;
-    Color color = {255, 255, 255, 255};
+    Color color = {1.0, 1.0, 1.0, 1.0};
     bool isStatic = false;
+    bool hasCollision = true;
 
 public:
     Entity() = default;
@@ -40,6 +41,9 @@ public:
     Vector2 GetVelocity() const { return velocity; }
     void SetVelocity(Vector2 v) { velocity = v; }
 
+    bool GetHasCollision() { return this->hasCollision; }
+    void SetCollision(bool hasCollision) { this->hasCollision = hasCollision; }
+
     virtual void Process(double dt) { }
 
     virtual void Draw() {
@@ -53,7 +57,7 @@ public:
         rect.x = screenPos.x - (rect.w * 0.5f);
         rect.y = screenPos.y - (rect.h * 0.5f);
 
-        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+        SDL_SetRenderDrawColorFloat(renderer, color.r, color.g, color.b, color.a);
         SDL_RenderFillRect(renderer, &rect);
     }
 

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../World/world.h"
 #include "../CollisionSystem/collisionsystem.h"
 #include "../AnimatedEntity/animatedentity.h"
 #include "../Camera/camera.h"
